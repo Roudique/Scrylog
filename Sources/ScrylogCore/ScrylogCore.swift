@@ -18,14 +18,47 @@ public final class ScrylogCore {
     public func run() throws {
         print("Hi, this is scrylog")
 
-        checkForCurrentData()
+        guard let versionPaths = getCurrentVersionFolders() else {
+            return
+        }
+        
+        
+        // Compare fetched version to local versions. If:
+        //  a) No local versions: create v1.
+        //  b) Latest local version is different: return conflicting versions.
+        //  c) Latest local version is the same: do nothing.
     }
 }
 
 // MARK: - Private
 
 private extension ScrylogCore {
-    func checkForCurrentData() {
+    func getCurrentVersionFolders() -> [String]? {
+        guard let folderPath = createPrivateFolderIfNeeded() else {
+            print("Could not find scrylog directory. Aborting.")
+            return nil
+        }
+        
+        // Initialize the FileService.
+        guard let fileService = FileService(startDirectoryPath: folderPath) else {
+            print("Failed to create file service at path: \(folderPath). Aborting :( ")
+            return nil
+        }
+        
+        guard let folders = fileService.getFolderNames() else {
+            print("Could not get folders :( Aborting.")
+            return nil
+        }
+        
+        guard let versionsFolder = createVersionsFolderIfNeeded(currentFolders: folders) else {
+            print("Could not create version folder :( Aborting.")
+            return nil
+        }
+        
+        return fileService.getFolderNames(at: [versionsFolder])
+    }
+    
+    func createPrivateFolderIfNeeded() -> String? {
         let fileManager         = FileManager.default
         let homeDirURL          = fileManager.homeDirectoryForCurrentUser
         let privateFolderURL    = homeDirURL.appendingPathComponent(".scrylog", isDirectory: true)
@@ -40,26 +73,14 @@ private extension ScrylogCore {
                                                 attributes: nil)
             } catch {
                 print("Failed to create directory, error: \(error)")
-                return
+                return nil
             }
         }
-        
-        // Initialize the FileService.
-        let scrylogFolderPath = homeDirURL.appendingPathComponent(".scrylog").path
-        guard let fileService = FileService(startDirectoryPath: scrylogFolderPath) else {
-            print("Failed to create file service at path: \(scrylogFolderPath). Aborting :( ")
-            return
-        }
-        
-        guard let folders = fileService.getFolderNames() else {
-            print("Could not get folders :( Aborting.")
-            return
-        }
-        
-        if !folders.contains(FolderNames.versions.rawValue) {
-            
-        }
-        
-    }
 
+        return privateFolderURL.path
+    }
+    
+    func createVersionsFolderIfNeeded(currentFolders: [String]) -> String? {
+        return nil
+    }
 }
