@@ -5,19 +5,27 @@ import ScryLogHTMLParser
 public final class ScrylogCore {
     private let arguments: [String]
     
-    private enum FolderName: String {
+    private enum FolderNames: String {
         case versions
         
-        var string: String {
-            return rawValue
-        }
+        var string: String { return rawValue }
     }
     
     public init(arguments: [String] = CommandLine.arguments) {
         self.arguments = arguments
     }
     
-    private func checkForCurrentData() {
+    public func run() throws {
+        print("Hi, this is scrylog")
+
+        checkForCurrentData()
+    }
+}
+
+// MARK: - Private
+
+private extension ScrylogCore {
+    func checkForCurrentData() {
         let fileManager         = FileManager.default
         let homeDirURL          = fileManager.homeDirectoryForCurrentUser
         let privateFolderURL    = homeDirURL.appendingPathComponent(".scrylog", isDirectory: true)
@@ -27,7 +35,9 @@ public final class ScrylogCore {
             print("No scrylog folder exists just yet, creating one...")
             
             do {
-                try fileManager.createDirectory(at: privateFolderURL, withIntermediateDirectories: true, attributes: nil)
+                try fileManager.createDirectory(at: privateFolderURL,
+                                                withIntermediateDirectories: true,
+                                                attributes: nil)
             } catch {
                 print("Failed to create directory, error: \(error)")
                 return
@@ -46,15 +56,10 @@ public final class ScrylogCore {
             return
         }
         
-        if !folders.contains(FolderName.versions.rawValue) {
+        if !folders.contains(FolderNames.versions.rawValue) {
             
         }
         
     }
-    
-    public func run() throws {
-        print("Hi, this is scrylog")
 
-        checkForCurrentData()
-    }
 }
