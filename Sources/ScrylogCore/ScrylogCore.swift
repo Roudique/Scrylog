@@ -2,6 +2,8 @@ import Foundation
 import ScryLogFileService
 import ScryLogHTMLParser
 
+struct ScrylogError: Error {}
+
 public final class ScrylogCore {
     private let arguments: [String]
     
@@ -14,13 +16,18 @@ public final class ScrylogCore {
     public init(arguments: [String] = CommandLine.arguments) {
         self.arguments = arguments
     }
-    
-    public func run() throws {
-        print("Hi, this is scrylog")
+}
 
-        guard let versionPaths = getCurrentVersionFolders() else {
-            return
+public extension ScrylogCore {
+    func run() throws {
+        print("Hi, this is scrylog")
+        
+        guard let versions = getCurrentVersionFolders() else {
+            throw ScrylogError()
         }
+        
+        
+        
         
         
         // Compare fetched version to local versions. If:
@@ -34,31 +41,26 @@ public final class ScrylogCore {
 
 private extension ScrylogCore {
     func getCurrentVersionFolders() -> [String]? {
-        guard let folderPath = createPrivateFolderIfNeeded() else {
+        guard let privateFolder = createPrivateFolderIfNeeded() else {
             print("Could not find scrylog directory. Aborting.")
             return nil
         }
         
         // Initialize the FileService.
-        guard let fileService = FileService(startDirectoryPath: folderPath) else {
-            print("Failed to create file service at path: \(folderPath). Aborting :( ")
+        guard let fileService = FileService(startDirectoryPath: privateFolder.path) else {
+            print("Failed to create file service at path: \(privateFolder.path). Aborting :( ")
             return nil
         }
         
-        guard let folders = fileService.getFolderNames() else {
-            print("Could not get folders :( Aborting.")
-            return nil
-        }
-        
-        guard let versionsFolder = createVersionsFolderIfNeeded(currentFolders: folders) else {
+        guard let versionsFolderURL = createVersionsFolderIfNeeded(containigFolderURL: privateFolder) else {
             print("Could not create version folder :( Aborting.")
             return nil
         }
         
-        return fileService.getFolderNames(at: [versionsFolder])
+        return fileService.getFolderNames(at: [versionsFolderURL.lastPathComponent])
     }
     
-    func createPrivateFolderIfNeeded() -> String? {
+    func createPrivateFolderIfNeeded() -> URL? {
         let fileManager         = FileManager.default
         let homeDirURL          = fileManager.homeDirectoryForCurrentUser
         let privateFolderURL    = homeDirURL.appendingPathComponent(".scrylog", isDirectory: true)
@@ -77,10 +79,23 @@ private extension ScrylogCore {
             }
         }
 
-        return privateFolderURL.path
+        return privateFolderURL
     }
     
-    func createVersionsFolderIfNeeded(currentFolders: [String]) -> String? {
-        return nil
+    func createVersionsFolderIfNeeded(containigFolderURL: URL) -> URL? {
+        let versionsFolderURL = containigFolderURL.appendingPathComponent(FolderNames.versions.string)
+        
+        let fileManager = FileManager.default
+        if !fileManager.fileExists(atPath: versionsFolderURL.path) {
+            do {
+                try fileManager.createDirectory(atPath: versionsFolderURL.path,
+                                            withIntermediateDirectories: false,
+                                            attributes: nil)
+            } catch {
+                return nil
+            }
+        }
+        
+        return versionsFolderURL
     }
 }
