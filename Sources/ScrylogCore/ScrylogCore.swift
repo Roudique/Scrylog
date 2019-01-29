@@ -2,7 +2,9 @@ import Foundation
 import ScryLogFileService
 import ScryLogHTMLParser
 
-struct ScrylogError: Error {}
+enum ScrylogError: Error {
+    case couldNotCreateFileService
+}
 
 public final class ScrylogCore {
     private let arguments: [String]
@@ -18,15 +20,22 @@ public final class ScrylogCore {
     }
 }
 
+@available(OSX 10.12, *)
 public extension ScrylogCore {
     func run() throws {
         print("Hi, this is scrylog")
         
-        guard let versions = getCurrentVersionFolders() else {
-            throw ScrylogError()
+        guard let privateFolderURL = createPrivateFolderIfNeeded() else { throw ScrylogError.couldNotCreateFileService }
+        
+        guard let fileService = FileService(startDirectoryPath: privateFolderURL.path) else {
+            throw ScrylogError.couldNotCreateFileService
         }
         
-        
+        ScryfallAPI.fetchLatestDocuments { tablesDict in
+            print("total entities: \(tablesDict?.count)")
+        }
+
+        RunLoop.main.run()
         
         
         
@@ -37,6 +46,31 @@ public extension ScrylogCore {
     }
 }
 
+@available(OSX 10.12, *)
+private extension ScrylogCore {
+    func createPrivateFolderIfNeeded() -> URL? {
+        let fileManager         = FileManager.default
+        let homeDirURL          = fileManager.homeDirectoryForCurrentUser
+        let privateFolderURL    = homeDirURL.appendingPathComponent(".scrylog", isDirectory: true)
+        
+        // Check if private .scrylog folder exists and create if needed.
+        if !fileManager.fileExists(atPath: privateFolderURL.path) {
+            print("No scrylog folder exists just yet, creating one...")
+            
+            do {
+                try fileManager.createDirectory(at: privateFolderURL,
+                                                withIntermediateDirectories: true,
+                                                attributes: nil)
+            } catch {
+                print("Failed to create directory, error: \(error)")
+                return nil
+            }
+        }
+        
+        return privateFolderURL
+    }
+}
+/*
 // MARK: - Private
 
 private extension ScrylogCore {
@@ -99,3 +133,4 @@ private extension ScrylogCore {
         return versionsFolderURL
     }
 }
+*/
