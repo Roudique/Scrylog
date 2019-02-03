@@ -9,7 +9,8 @@ let package = Package(
         // Dependencies declare other packages that this package depends on.
         // .package(url: /* package url */, from: "1.0.0"),
         .package(path: "../ScryLogFileService"),
-        .package(path: "../ScryLogHTMLParser")
+        .package(path: "../ScryLogHTMLParser"),
+        .package(path: "../FlexibleDiff")
     ],
     targets: [
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.
@@ -19,7 +20,7 @@ let package = Package(
             dependencies: ["ScrylogCore"]),
         .target(
             name: "ScrylogCore",
-            dependencies: ["ScryLogFileService", "ScryLogHTMLParser"]),
+            dependencies: ["ScryLogFileService", "ScryLogHTMLParser", "FlexibleDiff"]),
         .testTarget(
             name: "scrylogTests",
             dependencies: ["scrylog"]),

@@ -32,7 +32,13 @@ public extension ScrylogCore {
         }
         
         ScryfallAPI.fetchLatestDocuments { tablesDict in
-            print("total entities: \(tablesDict?.count)")
+            guard let tablesDict = tablesDict else {
+                print("Something went wrong, could not fetch latest documents from scryfall.com :(")
+                return
+            }
+            
+            let entities = self.parse(response: tablesDict)
+            
         }
 
         RunLoop.main.run()
@@ -48,6 +54,17 @@ public extension ScrylogCore {
 
 @available(OSX 10.12, *)
 private extension ScrylogCore {
+    func parse(response: [String : [Table]]) -> [Entity] {
+        let entityNames = response.keys
+        var entities = [Entity]()
+        for entityName in entityNames {
+            guard let tables = response[entityName] else { continue }
+            entities.append(Entity(title: entityName, tables: tables))
+        }
+        
+        return entities
+    }
+
     func createPrivateFolderIfNeeded() -> URL? {
         let fileManager         = FileManager.default
         let homeDirURL          = fileManager.homeDirectoryForCurrentUser
