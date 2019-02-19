@@ -1,47 +1,72 @@
 import XCTest
 import class Foundation.Bundle
+import ScryLogHTMLParser
+import ScryLogFileService
 
 final class scrylogTests: XCTestCase {
-    func testExample() throws {
-        // This is an example of a functional test case.
-        // Use XCTAssert and related functions to verify your tests produce the correct
-        // results.
-
-        // Some of the APIs that we use below are available in macOS 10.13 and above.
-        guard #available(macOS 10.13, *) else {
-            return
-        }
-
-        let fooBinary = productsDirectory.appendingPathComponent("scrylog")
-
-        let process = Process()
-        process.executableURL = fooBinary
-
-        let pipe = Pipe()
-        process.standardOutput = pipe
-
-        try process.run()
-        process.waitUntilExit()
-
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        let output = String(data: data, encoding: .utf8)
-
-        XCTAssertEqual(output, "Hello, world!\n")
+    func makeTable(title: String = "Test") -> Table {
+        return Table(title: title, rows: [["00", "01"],
+                                          ["10", "11"]])
     }
+    
+    func testTableDiff() {
+        let table1 = makeTable(title: "tableTitle")
+        let table2 = Table(title: "tableTitle", rows: [["00", "x"],
+                                                    ["10", "11"],
+                                                    ["20", "21"],
+                                                    ["00", "01"]])
 
-    /// Returns path to the built products directory.
-    var productsDirectory: URL {
-      #if os(macOS)
-        for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(".xctest") {
-            return bundle.bundleURL.deletingLastPathComponent()
+        let diff = table1.diff(to: table2)!
+        switch diff.type {
+        case .update(inserts: let inserts, removals: let removals):
+            XCTAssert(inserts.count == 3 && removals.count == 1)
+        default:
+            XCTAssert(false)
         }
-        fatalError("couldn't find the products directory")
-      #else
-        return Bundle.main.bundleURL
-      #endif
+    }
+    
+    func testEntityDiffInsertedAndUpdatedTables() {
+        let table1 = makeTable(title: "01")
+        let table2 = makeTable(title: "02")
+        let table3 = makeTable(title: "03")
+        let table2modified = Table(title: "02", rows: [["00", "x"],
+                                                       ["10", "11"]])
+        
+        let entity1 = Entity(title: "test", tables: [table1, table2])
+        let entity2 = Entity(title: "test", tables: [table1, table2modified, table3])
+        
+        let diffs = entity1.diff(to: entity2)!
+        
+        var insertedTablesCount = 0
+        var updatedTablesCount  = 0
+        var removedTablesCount  = 0
+        
+        for diff in diffs {
+            switch diff.type {
+            case .insertion:
+                insertedTablesCount += 1
+            case .update(inserts: _, removals: _):
+                updatedTablesCount += 1
+            case .removal:
+                removedTablesCount += 1
+            }
+        }
+        
+        XCTAssert(insertedTablesCount == 1)
+        XCTAssert(updatedTablesCount == 1)
+        XCTAssert(removedTablesCount == 0)
+    }
+    
+    func testEntityDiffIsNilIfNamesDontMatch() {
+        let entity1 = Entity(title: "entity1", tables: [Table]())
+        let entity2 = Entity(title: "entity2", tables: [Table]())
+        
+        XCTAssert(entity1.diff(to: entity2) == nil)
     }
 
     static var allTests = [
-        ("testExample", testExample),
+        ("testTableDiff", testTableDiff,
+         "testEntityDiffInsertedAndUpdatedTables", testEntityDiffInsertedAndUpdatedTables,
+         "testEntityDiffIsNilIfNamesDontMatch", testEntityDiffIsNilIfNamesDontMatch),
     ]
 }
