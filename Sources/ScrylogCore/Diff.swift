@@ -69,3 +69,24 @@ extension Entity {
         return diffs
     }
 }
+
+extension Version {
+    func diff(to other: Version) -> [(entityName: String, diffs: [TableDiff])]? {
+        var diffs = [(entityName: String, diffs: [TableDiff])]()
+        
+        for entity in self.entities {
+            guard let otherEntity = other.entities.first(where: { $0.title == entity.title }) else { return nil }
+            
+            if let diff = entity.diff(to: otherEntity), diff.count > 0 {
+                diffs.append((entityName: entity.title, diffs: diff))
+            }
+        }
+        
+        let totalEntities = self.entities.union(other.entities)
+        if totalEntities.count != self.entities.count || totalEntities.count != other.entities.count {
+            return nil
+        }
+        
+        return diffs
+    }
+}

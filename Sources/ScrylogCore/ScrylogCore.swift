@@ -38,7 +38,7 @@ public extension ScrylogCore {
             }
             
             let entities = self.parse(response: tablesDict)
-            
+            print("")
         }
 
         RunLoop.main.run()
