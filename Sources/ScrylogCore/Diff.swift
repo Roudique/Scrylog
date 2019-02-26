@@ -29,13 +29,6 @@ extension Table {
         let removals = changeset.removals.union(IndexSet(changeset.moves.map { $0.source }))
         let inserts = changeset.inserts.union(IndexSet(changeset.moves.map { $0.destination }))
         
-        print("table1:\n\t\(self.rows)\n\ntable2:\n\t\(other.rows)\n")
-        
-        print("""
-            - deleted \(removals.count) item(s) at [\(removals.map(String.init).joined(separator: ", "))]"
-            - inserted \(inserts.count) item(s) at [\(inserts.map(String.init).joined(separator: ", "))]"
-            """)
-        
         if inserts.count == 0 && removals.count == 0 { return nil }
         
         return TableDiff(tableName: self.title, type: .update(inserts: inserts, removals: removals))
