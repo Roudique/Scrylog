@@ -23,9 +23,22 @@ public final class ScrylogCore {
 @available(OSX 10.12, *)
 public extension ScrylogCore {
     func run() throws {
-        guard let privateFolderURL = createPrivateFolderIfNeeded() else { throw ScrylogError.couldNotCreateFileService
-            
+        try dispatch()
+    }
+}
+
+@available(OSX 10.12, *)
+private extension ScrylogCore {
+    func dispatch() throws {
+        if arguments.contains("--generate") {
+            runGenerateCode()
+        } else {
+            try runVersion()
         }
+    }
+    
+    func runVersion() throws {
+        guard let privateFolderURL = createPrivateFolderIfNeeded() else { throw ScrylogError.couldNotCreateFileService }
         
         guard let fileService = FileService(startDirectoryPath: privateFolderURL.path) else {
             throw ScrylogError.couldNotCreateFileService
@@ -59,7 +72,7 @@ public extension ScrylogCore {
                 print("Current scryfall.com doc set version is the same as latest local version!")
                 exit(0)
             }
-           
+            
             // Latest local version is different: print conflicting versions.
             self.printDiff(diffs: versionDiff,
                            oldEntities: lastVersion.entities,
@@ -77,8 +90,168 @@ public extension ScrylogCore {
             
             exit(0)
         }
-
+        
         RunLoop.main.run()
+    }
+    
+    func runGenerateCode() {
+        guard let index = arguments.firstIndex(of: "--generate") else { return }
+        guard arguments.count > index else {
+            print("Invalid arguments")
+            exit(0)
+        }
+        let entityName = arguments[index+1]
+        
+        ScryfallAPI.fetchLatestDocuments { tablesDict in
+            guard let tablesDict = tablesDict else {
+                print("Something went wrong, could not fetch latest documents from scryfall.com :(")
+                return
+            }
+            
+            let entities = self.parse(response: tablesDict)
+            guard let entity = entities.first(where: { entity in
+                entity.title == entityName
+            }) else {
+                print("Could not find entity for name: \(entityName)")
+                exit(0)
+            }
+            
+            guard let data = self.generateCode(for: entity) else {
+                print("Failed to generate entity '\(entityName)' :(")
+                exit(0)
+            }
+            
+            let path = self.arguments[0]
+                .components(separatedBy: "/")
+                .dropLast()
+                .joined(separator: "/")
+                + "/\(entity.title).swift"
+            let url = URL(fileURLWithPath: path)
+            
+            do {
+                try data.write(to: url)
+            } catch {
+                print(error.localizedDescription)
+                exit(0)
+            }
+            
+            print("File successfully saved at: \(url)")
+            exit(0)
+        }
+        
+        RunLoop.main.run()
+    }
+}
+
+private extension ScrylogCore {
+    func generateCode(for entity: Entity) -> Data? {
+        if entity.title == "cards" {
+            return generateCardCode(for: entity)
+        }
+        
+        print("Unsupported entity: \(entity.title)")
+        exit(0)
+    }
+    
+    func generateCardCode(for entity: Entity) -> Data? {
+        var correctTables = [Table]()
+        
+        for table in entity.tables {
+            if table.title.lowercased().contains("fields") {
+                correctTables.append(table)
+            }
+        }
+        
+        var codingKeys =
+        """
+        \t// CodingKeys
+        \tenum CodingKeys: String, CodingKey {
+        """
+        var codeString = ""
+        codeString.append("// Generated with scrylog.\n")
+        codeString.append("import Foundation\n\n\n")
+        codeString.append("class Card: Decodable {\n")
+        
+        for table in correctTables {
+            if correctTables.first! != table {
+                codeString.append("\n")
+            }
+            
+            codeString.append("\t//MARK: - \(table.title)\n")
+            codingKeys.append("\n\t\t// \(table.title)\n")
+            
+            for row in table.rows {
+                guard row[0].lowercased() != "property" else { continue }
+                
+                let realName = row[0]
+                let varName = self.snakeCaseToLowercase(str: realName)
+                let varType = self.correctType(from: row[1])
+                let isOptional = self.isNullable(string: row[2])
+                let description = row[3]
+                
+                codeString.append("\n\t/// \(description)\n")
+                codeString.append("\tvar \(varName): \(varType)\(isOptional ? "?" : "")\n")
+                
+                codingKeys.append("\n\t\tcase \(varName)\(varName == realName ? "" : " = \"\(realName)\"")")
+                
+                if table.rows.last! == row {
+                    codeString.append("\n")
+                    codingKeys.append("\n")
+                }
+            }
+        }
+        codingKeys.append("\t}")
+        
+        codeString.append("\n" + codingKeys + "\n")
+        codeString.append("}")
+        
+        return codeString.data(using: .utf8)
+    }
+    
+    func snakeCaseToLowercase(str: String) -> String {
+        return str
+            .split(separator: "_")  // split to components
+            .map { String($0) }   // convert subsequences to String
+            .enumerated()  // get indices
+            .map {
+                if $0.element == "uri" { return "URI" }
+                if $0.element == "uris" { return "URIs" }
+                if $0.element == "id" { return "ID" }
+                if $0.element == "ids" { return "IDs" }
+
+
+                // added lowercasing
+                return $0.offset > 0 ? $0.element.capitalized : $0.element.lowercased() }
+            .joined() // join to one string
+    }
+    
+    func correctType(from string: String) -> String {
+        let lowercased = string.lowercased()
+        
+        switch lowercased {
+        case "string":
+            return "String"
+        case "integer":
+            return "Int"
+        case "uri":
+            return "URL"
+        case "boolean":
+            return "Bool"
+        case "decimal":
+            return "Double"
+        case "date":
+            return "Date"
+        default:
+            return "<#\(lowercased)#>"
+        }
+    }
+    
+    func isNullable(string: String) -> Bool {
+        if string.lowercased() == "nullable" {
+            return true
+        }
+        
+        return false
     }
 }
 
