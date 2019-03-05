@@ -121,17 +121,13 @@ private extension ScrylogCore {
                 exit(0)
             }
             
-            let path = self.arguments[0]
-                .components(separatedBy: "/")
-                .dropLast()
-                .joined(separator: "/")
-                + "/\(entity.title).swift"
-            let url = URL(fileURLWithPath: path)
+            let path = FileManager.default.currentDirectoryPath + "/\(entity.title).swift" as NSString
+            let url = URL(fileURLWithPath: path.expandingTildeInPath)
             
             do {
                 try data.write(to: url)
             } catch {
-                print(error.localizedDescription)
+                print("Failed to save file at \(url.absoluteString): " + error.localizedDescription)
                 exit(0)
             }
             
