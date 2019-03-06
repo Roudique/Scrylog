@@ -62,7 +62,7 @@ class CodePrinter {
                 codeString.append("\n\t/// \(description)\n")
                 codeString.append("\tvar \(varName): \(varType)\(isOptional ? "?" : "")\n")
                 
-                codingKeys.append("\n\t\tcase \(varName)\(varName == realName ? "" : " = \"\(realName)\"")")
+                codingKeys.append("\n\t\tcase \(varName)\(varName == row[0] ? "" : " = \"\(row[0])\"")")
                 
                 if table.rows.last! == row {
                     codeString.append("\n")
